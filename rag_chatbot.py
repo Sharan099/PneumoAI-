@@ -354,13 +354,15 @@ class ClinicalChatbot:
         
         # Build prompt (optimized for token usage)
         # Limit context to save tokens
-        context_limited = context[:500] if len(context) > 500 else context
+        if context:
+            context_limited = context[:500] if len(context) > 500 else context
+            guidelines_section = f"\n\nGuidelines:\n{context_limited}"
+        else:
+            guidelines_section = ""
+        
         prompt = f"""Clinical explanation (brief, 100 words max):
 Prediction: {pred_result.prediction} ({pred_result.confidence:.0%})
-{pred_result.gradcam_note}
-
-Guidelines:
-{context_limited}
+{pred_result.gradcam_note}{guidelines_section}
 
 Provide: 1) Interpretation 2) Next steps 3) Safety note. Be concise."""
         
@@ -391,13 +393,15 @@ Provide: 1) Interpretation 2) Next steps 3) Safety note. Be concise."""
         guidelines_context = "\n\n".join(relevant_chunks) if relevant_chunks else ""
         
         # Build prompt (optimized for token usage)
-        # Limit context length to save tokens - use only top 2 chunks
-        guidelines_short = "\n\n".join(relevant_chunks[:2])
-        guidelines_limited = guidelines_short[:400] if len(guidelines_short) > 400 else guidelines_short
-        prompt = f"""{context}Q: {user_query}
-
-Guidelines (brief):
-{guidelines_limited}
+        if guidelines_context:
+            # Limit context length to save tokens - use only top 2 chunks
+            guidelines_short = "\n\n".join(relevant_chunks[:2]) if relevant_chunks else ""
+            guidelines_limited = guidelines_short[:400] if len(guidelines_short) > 400 else guidelines_short
+            guidelines_section = f"\n\nGuidelines (brief):\n{guidelines_limited}"
+        else:
+            guidelines_section = ""
+        
+        prompt = f"""{context}Q: {user_query}{guidelines_section}
 
 Provide concise, evidence-based answer."""
         
