@@ -192,9 +192,36 @@ if 'current_image' not in st.session_state:
 @st.cache_resource
 def load_model():
     """Load the trained pneumonia model"""
-    if not MODEL_PATH.exists():
-        st.error(f"Model not found at {MODEL_PATH}. Please train the model first using train.py")
+    # Find model using helper function
+    model_path = find_model_path()
+    
+    if model_path is None:
+        # Try to list files for debugging
+        try:
+            files_in_dir = list(BASE_DIR.glob("*.pth"))
+            files_in_cwd = list(Path.cwd().glob("*.pth"))
+        except:
+            files_in_dir = []
+            files_in_cwd = []
+        
+        error_msg = f"**Model not found**\n\n"
+        error_msg += f"**Searched locations:**\n"
+        error_msg += f"- {BASE_DIR / 'model.pth'}\n"
+        error_msg += f"- {Path('model.pth').absolute()}\n"
+        error_msg += f"- {Path.cwd() / 'model.pth'}\n\n"
+        error_msg += f"**Debug info:**\n"
+        error_msg += f"- Script location: `{Path(__file__).parent.absolute()}`\n"
+        error_msg += f"- Current directory: `{os.getcwd()}`\n"
+        error_msg += f"- Base directory: `{BASE_DIR}`\n"
+        if files_in_dir:
+            error_msg += f"- Found .pth files in script dir: {[str(f.name) for f in files_in_dir]}\n"
+        if files_in_cwd:
+            error_msg += f"- Found .pth files in CWD: {[str(f.name) for f in files_in_cwd]}\n"
+        error_msg += f"\n**Solution:** Ensure `model.pth` is in the repository root directory."
+        st.error(error_msg)
         return None
+    
+    model_path_str = str(model_path)
     
     model = models.resnet18(weights=None)
     num_features = model.fc.in_features
@@ -207,11 +234,15 @@ def load_model():
     )
     
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    checkpoint = torch.load(MODEL_PATH, map_location=device)
-    model.load_state_dict(checkpoint['model_state_dict'])
-    model = model.to(device)
-    model.eval()
-    return model, device
+    try:
+        checkpoint = torch.load(model_path_str, map_location=device)
+        model.load_state_dict(checkpoint['model_state_dict'])
+        model = model.to(device)
+        model.eval()
+        return model, device
+    except Exception as e:
+        st.error(f"Error loading model from {model_path_str}: {e}")
+        return None
 
 
 @st.cache_resource
