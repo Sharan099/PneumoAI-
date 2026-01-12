@@ -1,0 +1,84 @@
+# Model files
+*.pth
+*.pt
+*.pkl
+*.h5
+*.onnx
+
+# Results and outputs
+results/
+gradcam_results/
+vector_store/
+*.png
+*.jpg
+*.jpeg
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Data
+*.zip
+*.tar.gz
+chest-xray-pneumonia/
+
+# Logs
+*.log
+
+# Environment variables and API keys
+.env
+.env.local
+*.key
+*api_key*
+*API_KEY*
+
+# Documentation (exclude guides)
+QUICKSTART.md
+STREAMLIT_GUIDE.md
+
+# Database files
+*.db
+*.sqlite
+
+# Temporary files
+*.tmp
+*.temp
+__MACOSX/
+
+
+
