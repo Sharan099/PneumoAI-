@@ -269,8 +269,18 @@ def initialize_chatbot():
         if not VECTOR_STORE_DIR.exists():
             VECTOR_STORE_DIR.mkdir(parents=True, exist_ok=True)
         
-        # Initialize chatbot with proper paths
-        chatbot = ClinicalChatbot(model_path, PDF_DIR, use_claude=True)
+        # Get API key from Streamlit secrets
+        api_key = None
+        try:
+            if hasattr(st, 'secrets') and 'ANTHROPIC_API_KEY' in st.secrets:
+                api_key = st.secrets['ANTHROPIC_API_KEY']
+            elif hasattr(st, 'secrets') and 'anthropic' in st.secrets:
+                api_key = st.secrets.get('anthropic', {}).get('api_key')
+        except:
+            pass
+        
+        # Initialize chatbot with proper paths and API key
+        chatbot = ClinicalChatbot(model_path, PDF_DIR, use_claude=True, api_key=api_key)
         
         # Check if chatbot is functional
         if chatbot is None:

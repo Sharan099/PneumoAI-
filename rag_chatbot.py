@@ -5,6 +5,7 @@ Powered by Anthropic Claude API
 """
 
 import os
+import sys
 import torch
 import torch.nn.functional as F
 from torchvision import transforms, models
@@ -249,10 +250,25 @@ class ClinicalChatbot:
         self.claude_client = None
         
         if self.use_claude:
-            # Try to get API key
+            # Try to get API key from multiple sources
+            api_key_value = None
+            
+            # 1. Check if passed directly
             if api_key:
                 api_key_value = api_key
-            else:
+            # 2. Check Streamlit secrets (if available)
+            elif 'streamlit' in sys.modules:
+                try:
+                    import streamlit as st
+                    if hasattr(st, 'secrets') and 'secrets' in dir(st):
+                        try:
+                            api_key_value = st.secrets.get('ANTHROPIC_API_KEY') or st.secrets.get('anthropic', {}).get('api_key')
+                        except:
+                            pass
+                except:
+                    pass
+            # 3. Check environment variable
+            if not api_key_value:
                 api_key_value = os.getenv('ANTHROPIC_API_KEY')
             
             if api_key_value:
