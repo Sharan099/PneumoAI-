@@ -145,6 +145,16 @@ MODEL_PATH = BASE_DIR / "model.pth"
 PDF_DIR = BASE_DIR / "who_pdfs"
 IMAGE_SIZE = 224
 
+# Debug: Print paths for troubleshooting
+import os
+if os.getenv("STREAMLIT_DEBUG", "false").lower() == "true":
+    print(f"BASE_DIR: {BASE_DIR}")
+    print(f"MODEL_PATH: {MODEL_PATH}")
+    print(f"MODEL_PATH exists: {MODEL_PATH.exists()}")
+    print(f"MODEL_PATH absolute: {MODEL_PATH.absolute()}")
+    print(f"Current working directory: {os.getcwd()}")
+    print(f"Files in BASE_DIR: {list(BASE_DIR.glob('*.pth'))}")
+
 # Initialize session state
 if 'chatbot' not in st.session_state:
     st.session_state.chatbot = None
@@ -185,12 +195,28 @@ def load_model():
 def initialize_chatbot():
     """Initialize the RAG chatbot"""
     try:
-        # Verify model path exists before initializing
-        if not MODEL_PATH.exists():
-            st.error(f"Model not found at: {MODEL_PATH.absolute()}")
+        # Try multiple possible paths for model.pth
+        possible_paths = [
+            MODEL_PATH,  # Relative to script
+            Path("model.pth"),  # Current directory
+            Path(__file__).parent / "model.pth",  # Explicit parent
+            Path.cwd() / "model.pth",  # Current working directory
+        ]
+        
+        model_path = None
+        for path in possible_paths:
+            if path.exists():
+                model_path = path
+                break
+        
+        if model_path is None:
+            error_msg = f"Model not found. Searched in:\n"
+            for path in possible_paths:
+                error_msg += f"  - {path.absolute()}\n"
+            st.error(error_msg)
             return None
         
-        chatbot = ClinicalChatbot(MODEL_PATH, PDF_DIR, use_claude=True)
+        chatbot = ClinicalChatbot(model_path, PDF_DIR, use_claude=True)
         return chatbot
     except FileNotFoundError as e:
         st.error(f"Model file not found: {e}")
@@ -295,11 +321,29 @@ def main():
         st.header("⚙️ Settings")
         st.info("Upload an X-ray image to get started")
         
-        # Model status
-        if MODEL_PATH.exists():
-            st.success("✓ Model loaded")
+        # Model status - check multiple paths
+        model_found = False
+        possible_paths = [
+            MODEL_PATH,
+            Path("model.pth"),
+            Path(__file__).parent / "model.pth",
+            Path.cwd() / "model.pth",
+        ]
+        for path in possible_paths:
+            if path.exists():
+                model_found = True
+                break
+        
+        if model_found:
+            st.success("✓ Model found")
         else:
             st.error("✗ Model not found")
+            with st.expander("Debug Info"):
+                st.write(f"Current directory: {os.getcwd()}")
+                st.write(f"Script location: {Path(__file__).parent.absolute()}")
+                st.write("Searched paths:")
+                for path in possible_paths:
+                    st.write(f"  - {path.absolute()} (exists: {path.exists()})")
         
         # Chatbot status
         if st.session_state.chatbot is None:
