@@ -4,7 +4,7 @@ torchvision>=0.15.0
 
 # Image Processing
 Pillow>=9.0.0
-opencv-python>=4.7.0
+opencv-python-headless>=4.7.0  # Headless version for server/cloud environments (no GUI dependencies)
 numpy>=1.23.0
 
 # Machine Learning & Metrics

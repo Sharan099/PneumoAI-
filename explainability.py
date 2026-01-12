@@ -11,10 +11,21 @@ from torchvision import transforms, models
 from PIL import Image
 import numpy as np
 import matplotlib.pyplot as plt
-import cv2
 from pathlib import Path
 import os
 from tqdm import tqdm
+
+# OpenCV import with fallback
+try:
+    import cv2
+    CV2_AVAILABLE = True
+except ImportError:
+    try:
+        import cv2.cv2 as cv2
+        CV2_AVAILABLE = True
+    except ImportError:
+        CV2_AVAILABLE = False
+        print("Warning: OpenCV not available. Some visualization features may be limited.")
 
 # Set device
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -139,6 +150,13 @@ def preprocess_image(image_path):
 
 def overlay_heatmap(image, heatmap, alpha=0.4):
     """Overlay heatmap on original image"""
+    if not CV2_AVAILABLE:
+        # Fallback: simple overlay without cv2
+        heatmap_resized = np.array(Image.fromarray((heatmap * 255).astype(np.uint8)).resize((image.shape[1], image.shape[0])))
+        heatmap_3d = np.stack([heatmap_resized] * 3, axis=-1)
+        overlayed = (image * (1 - alpha) + heatmap_3d * alpha).astype(np.uint8)
+        return overlayed, heatmap_3d
+    
     # Resize heatmap to match image size
     heatmap_resized = cv2.resize(heatmap, (image.shape[1], image.shape[0]))
     heatmap_resized = np.uint8(255 * heatmap_resized)
@@ -199,7 +217,11 @@ def visualize_gradcam(model, image_path, true_label, class_name, output_dir, dev
     confidence = probs[0][pred_class].item()
     
     # Resize CAM to match original image
-    cam_resized = cv2.resize(cam, (original_image.shape[1], original_image.shape[0]))
+    if CV2_AVAILABLE:
+        cam_resized = cv2.resize(cam, (original_image.shape[1], original_image.shape[0]))
+    else:
+        # Fallback using PIL
+        cam_resized = np.array(Image.fromarray((cam * 255).astype(np.uint8)).resize((original_image.shape[1], original_image.shape[0]))) / 255.0
     
     # Overlay heatmap
     overlayed, heatmap_colored = overlay_heatmap(original_image, cam_resized)

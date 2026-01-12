@@ -12,12 +12,24 @@ import torch.nn.functional as F
 from torchvision import transforms, models
 from PIL import Image
 import numpy as np
-import cv2
 from pathlib import Path
 import io
 import os
 from typing import Optional
 import tempfile
+
+# OpenCV import with fallback for headless environments
+try:
+    import cv2
+    CV2_AVAILABLE = True
+except ImportError:
+    try:
+        # Try headless version
+        import cv2.cv2 as cv2
+        CV2_AVAILABLE = True
+    except ImportError:
+        CV2_AVAILABLE = False
+        st.warning("OpenCV not available. Grad-CAM visualization will be limited.")
 
 # Import from our modules
 import sys
@@ -221,6 +233,16 @@ def generate_gradcam(model, image_tensor, device, target_layer=None):
 
 def overlay_heatmap(image, heatmap, alpha=0.4):
     """Overlay heatmap on original image"""
+    if not CV2_AVAILABLE:
+        # Fallback: simple overlay without cv2
+        if isinstance(image, Image.Image):
+            image = np.array(image)
+        # Simple heatmap overlay using numpy
+        heatmap_resized = np.array(Image.fromarray((heatmap * 255).astype(np.uint8)).resize((image.shape[1], image.shape[0])))
+        heatmap_3d = np.stack([heatmap_resized] * 3, axis=-1)
+        overlayed = (image * (1 - alpha) + heatmap_3d * alpha).astype(np.uint8)
+        return overlayed, heatmap_3d
+    
     # Convert PIL to numpy
     if isinstance(image, Image.Image):
         image = np.array(image)
