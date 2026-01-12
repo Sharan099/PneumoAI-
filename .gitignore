@@ -1,9 +1,10 @@
-# Model files
-*.pth
+# Model files (exclude model.pth for deployment)
 *.pt
 *.pkl
 *.h5
 *.onnx
+# Allow model.pth for Streamlit Community Cloud deployment
+!model.pth
 
 # Results and outputs
 results/
