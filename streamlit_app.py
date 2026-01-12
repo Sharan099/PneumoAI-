@@ -185,8 +185,16 @@ def load_model():
 def initialize_chatbot():
     """Initialize the RAG chatbot"""
     try:
+        # Verify model path exists before initializing
+        if not MODEL_PATH.exists():
+            st.error(f"Model not found at: {MODEL_PATH.absolute()}")
+            return None
+        
         chatbot = ClinicalChatbot(MODEL_PATH, PDF_DIR, use_claude=True)
         return chatbot
+    except FileNotFoundError as e:
+        st.error(f"Model file not found: {e}")
+        return None
     except Exception as e:
         st.warning(f"Chatbot initialization warning: {e}")
         return None

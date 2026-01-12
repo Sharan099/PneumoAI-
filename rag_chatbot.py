@@ -182,6 +182,15 @@ class PneumoniaModel:
     
     def _load_model(self, model_path: Path):
         """Load trained model"""
+        # Convert Path to string and check if file exists
+        model_path_str = str(model_path)
+        if not Path(model_path).exists():
+            raise FileNotFoundError(
+                f"Model file not found at: {model_path_str}\n"
+                f"Current working directory: {os.getcwd()}\n"
+                f"Absolute path: {Path(model_path).absolute()}"
+            )
+        
         model = models.resnet18(weights=None)
         num_features = model.fc.in_features
         model.fc = torch.nn.Sequential(
@@ -192,11 +201,14 @@ class PneumoniaModel:
             torch.nn.Linear(128, 2)
         )
         
-        checkpoint = torch.load(model_path, map_location=self.device)
-        model.load_state_dict(checkpoint['model_state_dict'])
-        model = model.to(self.device)
-        model.eval()
-        return model
+        try:
+            checkpoint = torch.load(model_path_str, map_location=self.device)
+            model.load_state_dict(checkpoint['model_state_dict'])
+            model = model.to(self.device)
+            model.eval()
+            return model
+        except Exception as e:
+            raise RuntimeError(f"Error loading model from {model_path_str}: {e}")
     
     def predict(self, image_path: Path) -> PredictionResult:
         """Predict pneumonia from image"""
