@@ -139,11 +139,34 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# Paths
-BASE_DIR = Path(__file__).parent
+# Paths - Handle both local and Streamlit Cloud environments
+BASE_DIR = Path(__file__).parent.absolute()
 MODEL_PATH = BASE_DIR / "model.pth"
 PDF_DIR = BASE_DIR / "who_pdfs"
 IMAGE_SIZE = 224
+
+# Helper function to find model.pth in multiple locations
+def find_model_path():
+    """Find model.pth in common locations (for Streamlit Cloud compatibility)"""
+    possible_paths = [
+        BASE_DIR / "model.pth",           # Same directory as script
+        Path("model.pth"),                # Current working directory
+        Path.cwd() / "model.pth",         # Explicit current directory
+        Path(__file__).parent / "model.pth",  # Script parent directory
+    ]
+    
+    # Also check parent directories (in case script is in subdirectory)
+    for depth in range(3):
+        parent_path = Path(__file__).parent
+        for _ in range(depth):
+            parent_path = parent_path.parent
+        possible_paths.append(parent_path / "model.pth")
+    
+    for path in possible_paths:
+        if path.exists() and path.is_file():
+            return path
+    
+    return None
 
 # Debug: Print paths for troubleshooting
 import os
@@ -195,25 +218,11 @@ def load_model():
 def initialize_chatbot():
     """Initialize the RAG chatbot"""
     try:
-        # Try multiple possible paths for model.pth
-        possible_paths = [
-            MODEL_PATH,  # Relative to script
-            Path("model.pth"),  # Current directory
-            Path(__file__).parent / "model.pth",  # Explicit parent
-            Path.cwd() / "model.pth",  # Current working directory
-        ]
-        
-        model_path = None
-        for path in possible_paths:
-            if path.exists():
-                model_path = path
-                break
+        # Find model using helper function
+        model_path = find_model_path()
         
         if model_path is None:
-            error_msg = f"Model not found. Searched in:\n"
-            for path in possible_paths:
-                error_msg += f"  - {path.absolute()}\n"
-            st.error(error_msg)
+            st.error("Model not found. Cannot initialize chatbot.")
             return None
         
         chatbot = ClinicalChatbot(model_path, PDF_DIR, use_claude=True)
@@ -321,29 +330,23 @@ def main():
         st.header("⚙️ Settings")
         st.info("Upload an X-ray image to get started")
         
-        # Model status - check multiple paths
-        model_found = False
-        possible_paths = [
-            MODEL_PATH,
-            Path("model.pth"),
-            Path(__file__).parent / "model.pth",
-            Path.cwd() / "model.pth",
-        ]
-        for path in possible_paths:
-            if path.exists():
-                model_found = True
-                break
-        
-        if model_found:
-            st.success("✓ Model found")
+        # Model status
+        model_path = find_model_path()
+        if model_path:
+            st.success(f"✓ Model found at: `{model_path.name}`")
         else:
             st.error("✗ Model not found")
-            with st.expander("Debug Info"):
-                st.write(f"Current directory: {os.getcwd()}")
-                st.write(f"Script location: {Path(__file__).parent.absolute()}")
-                st.write("Searched paths:")
-                for path in possible_paths:
-                    st.write(f"  - {path.absolute()} (exists: {path.exists()})")
+            with st.expander("🔍 Debug Info"):
+                st.code(f"""
+Script location: {Path(__file__).parent.absolute()}
+Current directory: {os.getcwd()}
+Base directory: {BASE_DIR}
+
+Searched locations:
+- {BASE_DIR / 'model.pth'} (exists: {(BASE_DIR / 'model.pth').exists()})
+- {Path('model.pth').absolute()} (exists: {Path('model.pth').exists()})
+- {Path.cwd() / 'model.pth'} (exists: {(Path.cwd() / 'model.pth').exists()})
+                """)
         
         # Chatbot status
         if st.session_state.chatbot is None:
