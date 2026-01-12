@@ -143,7 +143,12 @@ st.markdown("""
 BASE_DIR = Path(__file__).parent.absolute()
 MODEL_PATH = BASE_DIR / "model.pth"
 PDF_DIR = BASE_DIR / "who_pdfs"
+VECTOR_STORE_DIR = BASE_DIR / "vector_store"
 IMAGE_SIZE = 224
+
+# Ensure directories exist
+PDF_DIR.mkdir(exist_ok=True)
+VECTOR_STORE_DIR.mkdir(exist_ok=True)
 
 # Helper function to find model.pth in multiple locations
 def find_model_path():
@@ -256,13 +261,38 @@ def initialize_chatbot():
             st.error("Model not found. Cannot initialize chatbot.")
             return None
         
+        # Ensure PDF directory exists
+        if not PDF_DIR.exists():
+            PDF_DIR.mkdir(parents=True, exist_ok=True)
+        
+        # Ensure vector store directory exists
+        if not VECTOR_STORE_DIR.exists():
+            VECTOR_STORE_DIR.mkdir(parents=True, exist_ok=True)
+        
+        # Initialize chatbot with proper paths
         chatbot = ClinicalChatbot(model_path, PDF_DIR, use_claude=True)
+        
+        # Check if chatbot is functional
+        if chatbot is None:
+            return None
+        
+        # Test if vector store is working (even if empty)
+        if hasattr(chatbot, 'vector_store') and chatbot.vector_store.index is None:
+            # Vector store not initialized, but chatbot can still work with Claude
+            st.info("ℹ️ RAG vector store not initialized (no PDFs found). Chatbot will use Claude AI only.")
+        
         return chatbot
     except FileNotFoundError as e:
         st.error(f"Model file not found: {e}")
         return None
     except Exception as e:
-        st.warning(f"Chatbot initialization warning: {e}")
+        # More detailed error message
+        error_details = str(e)
+        if "ANTHROPIC_API_KEY" in error_details or "API key" in error_details.lower():
+            st.warning("⚠️ Anthropic API key not set. Chatbot will use template responses. Set ANTHROPIC_API_KEY in Streamlit secrets.")
+        else:
+            st.warning(f"Chatbot initialization warning: {e}")
+        # Return None but don't crash - app can still work without chatbot
         return None
 
 
@@ -385,9 +415,27 @@ Searched locations:
                 st.session_state.chatbot = initialize_chatbot()
         
         if st.session_state.chatbot:
-            st.success("✓ Chatbot ready")
+            # Check if Claude is available
+            if hasattr(st.session_state.chatbot, 'use_claude') and st.session_state.chatbot.use_claude:
+                st.success("✓ Chatbot ready (Claude AI enabled)")
+            else:
+                st.info("ℹ️ Chatbot ready (Template mode - set ANTHROPIC_API_KEY for AI)")
+            
+            # Check vector store status
+            if hasattr(st.session_state.chatbot, 'vector_store'):
+                if st.session_state.chatbot.vector_store.index is not None:
+                    st.success("✓ RAG vector store loaded")
+                else:
+                    st.info("ℹ️ RAG: No PDFs found (add PDFs to who_pdfs/ for RAG)")
         else:
             st.warning("⚠ Chatbot unavailable")
+            with st.expander("Troubleshooting"):
+                st.markdown("""
+                **Possible issues:**
+                1. Model not found - ensure model.pth is in repository
+                2. API key not set - add ANTHROPIC_API_KEY in Streamlit secrets
+                3. Dependencies missing - check requirements.txt
+                """)
         
         st.markdown("---")
         st.markdown("### 📖 About")

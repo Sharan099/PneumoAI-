@@ -30,12 +30,14 @@ except ImportError:
 # Set device
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-# Paths
-BASE_DIR = Path(__file__).parent
+# Paths - Use absolute paths for cloud compatibility
+BASE_DIR = Path(__file__).parent.absolute()
 MODEL_PATH = BASE_DIR / "model.pth"
 PDF_DIR = BASE_DIR / "who_pdfs"
 VECTOR_STORE_DIR = BASE_DIR / "vector_store"
-VECTOR_STORE_DIR.mkdir(exist_ok=True)
+# Ensure directories exist
+VECTOR_STORE_DIR.mkdir(parents=True, exist_ok=True)
+PDF_DIR.mkdir(parents=True, exist_ok=True)
 FAISS_INDEX_PATH = VECTOR_STORE_DIR / "faiss_index.bin"
 CHUNKS_PATH = VECTOR_STORE_DIR / "chunks.json"
 IMAGE_SIZE = 224
@@ -341,12 +343,14 @@ class ClinicalChatbot:
         # Get model prediction
         pred_result = self.model.predict(image_path)
         
-        # Retrieve relevant context from vector store
+        # Retrieve relevant context from vector store (if available)
         query = f"pneumonia diagnosis guidelines clinical interpretation {pred_result.prediction.lower()}"
-        relevant_chunks = self.vector_store.search(query, k=3)
+        relevant_chunks = []
+        if self.vector_store.index is not None:
+            relevant_chunks = self.vector_store.search(query, k=3)
         
-        # Build context
-        context = "\n\n".join(relevant_chunks[:3])
+        # Build context (empty if no vector store)
+        context = "\n\n".join(relevant_chunks[:3]) if relevant_chunks else ""
         
         # Build prompt (optimized for token usage)
         # Limit context to save tokens
@@ -379,9 +383,12 @@ Provide: 1) Interpretation 2) Next steps 3) Safety note. Be concise."""
             pred_result = self.model.predict(image_path)
             context = f"Model Prediction: {pred_result.prediction} (confidence: {pred_result.confidence:.2f}). {pred_result.gradcam_note}\n\n"
         
-        # Retrieve relevant context
-        relevant_chunks = self.vector_store.search(user_query, k=3)
-        guidelines_context = "\n\n".join(relevant_chunks)
+        # Retrieve relevant context from vector store (if available)
+        relevant_chunks = []
+        if self.vector_store.index is not None:
+            relevant_chunks = self.vector_store.search(user_query, k=3)
+        
+        guidelines_context = "\n\n".join(relevant_chunks) if relevant_chunks else ""
         
         # Build prompt (optimized for token usage)
         # Limit context length to save tokens - use only top 2 chunks
